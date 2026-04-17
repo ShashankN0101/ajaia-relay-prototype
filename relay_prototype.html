@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ajaia Relay — Interactive Prototype</title>
+
+<!-- Fonts: Fraunces (serif display), Schibsted Grotesk (body), JetBrains Mono (UI bits) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=Schibsted+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- React 18 + Babel (for JSX) -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          paper:   '#F9F7F2',
+          cream:   '#FAF8F4',
+          ink:     '#141414',
+          charcoal:'#2A2A2A',
+          muted:   '#6B6B6B',
+          line:    '#E8E4DC',
+          hairline:'#ECE8DE',
+          navy:    '#1F3A5F',
+          navy2:   '#15283F',
+          blue:    '#2E75B6',
+          'blue-soft': '#E8F0F9',
+          red:     '#B23A3A',
+          'red-soft':  '#F7E8E8',
+          amber:   '#A47500',
+          'amber-soft': '#FBF3D8',
+          green:   '#4B7A2E',
+          'green-soft': '#E6EEDD'
+        },
+        fontFamily: {
+          serif: ['Fraunces', 'Georgia', 'serif'],
+          sans:  ['Schibsted Grotesk', 'ui-sans-serif', 'system-ui'],
+          mono:  ['JetBrains Mono', 'ui-monospace', 'monospace']
+        },
+        boxShadow: {
+          'soft': '0 1px 2px rgba(20,20,20,0.04), 0 2px 8px rgba(20,20,20,0.03)',
+          'lift': '0 2px 4px rgba(20,20,20,0.06), 0 8px 24px rgba(20,20,20,0.06)',
+          'pop':  '0 4px 12px rgba(31,58,95,0.12), 0 12px 32px rgba(31,58,95,0.08)'
+        }
+      }
+    }
+  }
+</script>
+
+<style>
+  html, body { background: #F9F7F2; }
+  body {
+    font-family: 'Schibsted Grotesk', ui-sans-serif, system-ui;
+    color: #141414;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "ss01", "ss02", "cv11";
+  }
+  /* Typographic refinements */
+  .font-serif-display {
+    font-family: 'Fraunces', Georgia, serif;
+    font-optical-sizing: auto;
+    font-variation-settings: "SOFT" 50, "WONK" 0;
+    letter-spacing: -0.01em;
+  }
+  .mono-label {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .kbd {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 10.5px;
+    padding: 2px 6px;
+    border: 1px solid #E8E4DC;
+    background: #FAF8F4;
+    border-radius: 4px;
+    color: #6B6B6B;
+    box-shadow: 0 1px 0 rgba(20,20,20,0.04);
+  }
+  /* subtle grain on body for paper feel */
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background-image: radial-gradient(rgba(20,20,20,0.018) 1px, transparent 1px);
+    background-size: 3px 3px;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .screen-card {
+    background: #FAF8F4;
+    border: 1px solid #ECE8DE;
+    border-radius: 14px;
+  }
+  /* subtle transitions */
+  .fade-in {
+    animation: fadeIn 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .item-exit {
+    animation: itemExit 220ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  }
+  @keyframes itemExit {
+    to { opacity: 0; transform: translateX(12px); max-height: 0; margin: 0; padding-top: 0; padding-bottom: 0; }
+  }
+  /* priority bar — gradient inspired */
+  .priority-bar {
+    width: 3px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+  /* row hover */
+  .row-hover:hover { background: rgba(31, 58, 95, 0.03); }
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #E0DCD2; border-radius: 10px; border: 2px solid #F9F7F2; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  /* focus ring */
+  button:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid #2E75B6;
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+</style>
+</head>
+
+<body class="min-h-screen">
+<div id="root"></div>
+
+<script type="text/babel" data-type="module">
+const { useState, useMemo, useEffect, useRef } = React;
+
+/* ---------- DATA ---------- */
+
+const ACCOUNTS = {
+  'northwind': {
+    id: 'northwind',
+    name: 'Northwind Logistics',
+    domain: 'northwind.com',
+    stage: 'Proposal',
+    owner: 'Shashank',
+    contacts: [
+      { name: 'Maria Chen', email: 'maria@northwind.com', role: 'VP Ops' },
+      { name: 'Daniel Alvarez', email: 'daniel@northwind.com', role: 'Finance' },
+      { name: 'Priya Raman', email: 'priya@northwind.com', role: 'Legal (pending intro)' }
+    ],
+    lastTouch: '9 days ago',
+    lastTouchAbs: 'Apr 7',
+    summary: 'On Apr 7, Maria asked you to revise the pricing table to reflect a 3-year term rather than 1-year. You replied you would send the revision by Apr 8. No email has gone out since Apr 7.',
+    commitments: [
+      { id: 'c1', owedBy: 'you', text: 'Revised 3-year pricing table', due: 'Apr 8', overdue: true },
+      { id: 'c2', owedBy: 'them', text: 'Legal contact introduction', due: 'Apr 5', overdue: false }
+    ],
+    draft: {
+      to: 'Maria Chen <maria@northwind.com>',
+      subject: 'Revised pricing — Northwind 3-year',
+      body: `Hi Maria,
+
+Apologies for the delay getting the revised pricing over. Attached is the updated table reflecting the 3-year term we discussed on Apr 7 — the net effect is a 12 percent reduction on annual run-rate.
+
+Happy to jump on a quick call this week if useful.
+
+Shashank`
+    },
+    timeline: [
+      { date: 'Apr 7', dir: 'in', text: 'Maria Chen: "Can you re-run pricing on a 3-year term?"' },
+      { date: 'Apr 7', dir: 'out', text: 'You: "Yes — will send by tomorrow."' },
+      { date: 'Apr 3', dir: 'out', text: 'You: Proposal v1 attached (PDF, 6pp)' },
+      { date: 'Apr 1', dir: 'meeting', text: 'Discovery call (45 min)' },
+      { date: 'Mar 28', dir: 'in', text: 'Maria Chen: "Let\'s set up a call next week."' },
+      { date: 'Mar 27', dir: 'out', text: 'You: Cold intro' }
+    ]
+  }
+};
+
+const initialDigestItems = [
+  { id: 'd1', priority: 'high', account: 'Northwind Logistics', accountId: 'northwind', stage: 'Proposal',
+    silent: 'Silent 9 days', detail: 'You said you would send the revised pricing on Apr 8. Last contact: Maria Chen.' },
+  { id: 'd2', priority: 'high', account: 'Orbital Data Co', accountId: 'orbital', stage: 'Negotiation',
+    silent: 'Silent 6 days', detail: 'They asked about Section 4.2 of the MSA. No reply sent. Last contact: David Kim.' },
+  { id: 'd3', priority: 'medium', account: 'Acme Group', accountId: 'acme', stage: 'Qualified',
+    silent: 'Silent 11 days', detail: 'Soft nudge — they asked for a demo and went quiet.' },
+  { id: 'd4', priority: 'medium', account: 'Brightpath Inc', accountId: 'brightpath', stage: 'Lead',
+    silent: 'Silent 8 days', detail: 'Intro email unanswered. Try a different angle?' },
+  { id: 'd5', priority: 'medium', account: 'Pinebridge Capital', accountId: 'pinebridge', stage: 'Proposal',
+    silent: 'Silent 7 days', detail: 'Follow-up to Apr 9 proposal send.' },
+  { id: 'd6', priority: 'review', account: 'Helios Systems', accountId: 'helios', stage: 'Stage change proposed',
+    silent: 'Qualified → Proposal', detail: 'Relay thinks this moved because you sent a 6-page SOW on Apr 14.' }
+];
+
+const pipelineRows = [
+  { name: 'Northwind Logistics', id: 'northwind', stage: 'Proposal', lastTouch: '9 days ago', next: 'Send revised pricing', due: 'Apr 8', overdue: true, alert: 'HIGH' },
+  { name: 'Orbital Data Co', id: 'orbital', stage: 'Negotiation', lastTouch: '6 days ago', next: 'Reply re: Sec. 4.2 MSA', due: 'Apr 12', alert: 'HIGH' },
+  { name: 'Helios Systems', id: 'helios', stage: 'Qual → Proposal?', lastTouch: '2 days ago', next: 'Confirm stage change', due: '—', alert: 'MED' },
+  { name: 'Acme Group', id: 'acme', stage: 'Qualified', lastTouch: '11 days ago', next: 'Re-engage', due: 'Apr 15', alert: 'MED' },
+  { name: 'Pinebridge Capital', id: 'pinebridge', stage: 'Proposal', lastTouch: '7 days ago', next: 'Nudge', due: 'Apr 16', alert: 'MED' },
+  { name: 'Summit Partners', id: 'summit', stage: 'Qualified', lastTouch: '3 days ago', next: '—', due: '—', alert: 'OK' },
+  { name: 'Brightpath Inc', id: 'brightpath', stage: 'Lead', lastTouch: '8 days ago', next: 'Cold follow-up', due: 'Apr 16', alert: 'MED' }
+];
+
+const initialQueueItems = [
+  { id: 'q1', type: 'stage', title: 'Stage change proposed',
+    headline: 'Helios Systems',
+    subtitle: 'Qualified → Proposal',
+    why: 'You attached a 6-page SOW on Apr 14.',
+    confidence: 92,
+    actions: ['Confirm', 'Reject — keep as Qualified', 'Open account'] },
+  { id: 'q2', type: 'dedupe', title: 'Possible duplicate account',
+    headline: '"Acme Group" vs "Acme Group Inc."',
+    subtitle: 'New thread from acmegroup.com',
+    why: 'Fuzzy match scored below the 85 percent threshold.',
+    confidence: 78,
+    actions: ['Merge', 'Keep separate', 'Open both'] },
+  { id: 'q3', type: 'commitment', title: 'New commitment — please verify',
+    headline: '"We will have the API spec to you by Apr 22."',
+    subtitle: 'Thread: Re: Integration scope (Apr 15, BrightPath)',
+    why: 'Source sentence: "we can get you a spec by end of next week". Attributed to: you.',
+    confidence: 81,
+    actions: ['Confirm', 'Edit date', 'Reject'] }
+];
+
+/* ---------- SMALL COMPONENTS ---------- */
+
+function MonoLabel({ children, className = '' }) {
+  return <span className={`mono-label ${className}`}>{children}</span>;
+}
+
+function Brand() {
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className="w-7 h-7 rounded-md bg-navy flex items-center justify-center shadow-soft">
+        <div className="w-3 h-3 rounded-sm bg-cream" style={{transform: 'rotate(45deg)'}}></div>
+      </div>
+      <span className="font-serif-display text-[22px] font-medium tracking-tight text-ink">Relay</span>
+    </div>
+  );
+}
+
+function PriorityBar({ priority }) {
+  const color = priority === 'high' ? 'bg-red' : priority === 'medium' ? 'bg-amber' : 'bg-blue';
+  return <div className={`priority-bar self-stretch ${color}`}></div>;
+}
+
+function AlertPill({ value }) {
+  if (value === 'HIGH') return <span className="mono-label text-red bg-red-soft px-2 py-1 rounded">HIGH</span>;
+  if (value === 'MED') return <span className="mono-label text-amber bg-amber-soft px-2 py-1 rounded">MED</span>;
+  if (value === 'OK') return <span className="mono-label text-green bg-green-soft px-2 py-1 rounded">OK</span>;
+  return null;
+}
+
+function ActionButton({ children, onClick, variant = 'ghost', size = 'sm' }) {
+  const base = 'mono-label transition-all duration-150 rounded';
+  const sz = size === 'sm' ? 'px-2.5 py-1.5' : 'px-3 py-2';
+  const variants = {
+    primary: 'bg-navy text-cream hover:bg-navy2',
+    secondary: 'bg-blue-soft text-navy hover:bg-blue hover:text-cream',
+    ghost: 'text-muted hover:text-ink hover:bg-line',
+    danger: 'text-red hover:bg-red-soft',
+    success: 'text-green hover:bg-green-soft'
+  };
+  return (
+    <button onClick={onClick} className={`${base} ${sz} ${variants[variant]}`}>
+      {children}
+    </button>
+  );
+}
+
+/* ---------- TOP NAV ---------- */
+
+function TopNav({ active, setActive, queueCount }) {
+  const items = [
+    { id: 'digest',   label: 'Digest',   kbd: 'G D' },
+    { id: 'pipeline', label: 'Pipeline', kbd: 'G P' },
+    { id: 'queue',    label: 'Queue',    kbd: 'G Q', badge: queueCount }
+  ];
+  return (
+    <nav className="sticky top-0 z-20 bg-paper/85 backdrop-blur-sm border-b border-hairline">
+      <div className="max-w-[1160px] mx-auto px-8 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-10">
+          <Brand />
+          <div className="flex items-center gap-1">
+            {items.map(it => (
+              <button
+                key={it.id}
+                onClick={() => setActive(it.id)}
+                className={`relative px-3.5 py-2 rounded-md text-[14px] font-medium transition-all
+                  ${active === it.id
+                    ? 'text-ink bg-line/60'
+                    : 'text-muted hover:text-ink hover:bg-line/40'}`}
+              >
+                {it.label}
+                {it.badge > 0 && (
+                  <span className="ml-2 mono-label bg-amber text-cream px-1.5 py-0.5 rounded text-[9px]">
+                    {it.badge}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center gap-3 text-[13px] text-muted">
+          <span className="hidden sm:flex items-center gap-2">
+            <span className="kbd">⌘</span><span className="kbd">K</span>
+            <span className="ml-1">Search</span>
+          </span>
+          <div className="w-px h-5 bg-hairline"></div>
+          <div className="w-7 h-7 rounded-full bg-navy text-cream flex items-center justify-center text-[11px] font-semibold">SN</div>
+        </div>
+      </div>
+    </nav>
+  );
+}
+
+/* ---------- DIGEST SCREEN ---------- */
+
+function DigestScreen({ items, setItems, onOpenAccount, onSentToast }) {
+  const removeItem = (id) => {
+    const el = document.getElementById(`digest-item-${id}`);
+    if (el) {
+      el.classList.add('item-exit');
+      setTimeout(() => setItems(items.filter(i => i.id !== id)), 220);
+    } else {
+      setItems(items.filter(i => i.id !== id));
+    }
+  };
+
+  const highItems = items.filter(i => i.priority === 'high');
+  const medItems = items.filter(i => i.priority === 'medium');
+  const revItems = items.filter(i => i.priority === 'review');
+
+  const sectionHeader = (label, count, color) => (
+    <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center gap-3">
+        <span className="mono-label" style={{ color }}>{label}</span>
+        <span className="mono-label text-muted">{count}</span>
+      </div>
+      <div className="flex-1 ml-4 h-px bg-hairline"></div>
+    </div>
+  );
+
+  return (
+    <div className="fade-in">
+      <header className="mb-8">
+        <div className="flex items-baseline justify-between mb-2">
+          <h1 className="font-serif-display text-[40px] font-light text-ink leading-tight">
+            Good morning, Shashank.
+          </h1>
+          <div className="mono-label text-muted">Thu · Apr 16</div>
+        </div>
+        <p className="text-muted text-[15px] leading-relaxed max-w-2xl">
+          Here is what needs you today. Six accounts surfaced from 142 threads overnight.
+        </p>
+      </header>
+
+      {items.length === 0 && (
+        <div className="screen-card p-12 text-center">
+          <div className="font-serif-display text-2xl text-ink mb-2">Inbox zero for today.</div>
+          <p className="text-muted text-[14px]">
+            Nothing else needs your attention. Relay will keep watching.
+          </p>
+        </div>
+      )}
+
+      {highItems.length > 0 && (
+        <section className="mb-10">
+          {sectionHeader('HIGH PRIORITY', highItems.length, '#B23A3A')}
+          <div className="space-y-2.5">
+            {highItems.map(item => (
+              <DigestItem key={item.id} item={item}
+                onOpen={() => onOpenAccount(item.accountId)}
+                onReview={() => onOpenAccount(item.accountId)}
+                onSnooze={() => { onSentToast(`Snoozed ${item.account} for 7 days`); removeItem(item.id); }}
+                onDismiss={() => { onSentToast(`Dismissed ${item.account}`); removeItem(item.id); }} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {medItems.length > 0 && (
+        <section className="mb-10">
+          {sectionHeader('ACTION SUGGESTED', medItems.length, '#A47500')}
+          <div className="space-y-2.5">
+            {medItems.map(item => (
+              <DigestItem key={item.id} item={item}
+                onOpen={() => onOpenAccount(item.accountId)}
+                onReview={() => onOpenAccount(item.accountId)}
+                onSnooze={() => { onSentToast(`Snoozed ${item.account} for 7 days`); removeItem(item.id); }}
+                onDismiss={() => { onSentToast(`Dismissed ${item.account}`); removeItem(item.id); }} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {revItems.length > 0 && (
+        <section>
+          {sectionHeader('AWAITING YOUR REVIEW', revItems.length, '#2E75B6')}
+          <div className="space-y-2.5">
+            {revItems.map(item => (
+              <DigestItem key={item.id} item={item}
+                onOpen={() => onOpenAccount(item.accountId)}
+                onReview={() => onOpenAccount(item.accountId)}
+                onSnooze={() => { onSentToast(`Snoozed`); removeItem(item.id); }}
+                onDismiss={() => { onSentToast(`Dismissed`); removeItem(item.id); }} />
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function DigestItem({ item, onOpen, onReview, onSnooze, onDismiss }) {
+  return (
+    <div
+      id={`digest-item-${item.id}`}
+      className="screen-card shadow-soft hover:shadow-lift transition-shadow duration-200 flex overflow-hidden"
+    >
+      <PriorityBar priority={item.priority} />
+      <div className="flex-1 p-5" onClick={onOpen} role="button" tabIndex="0">
+        <div className="flex items-baseline gap-3 flex-wrap">
+          <span className="font-serif-display text-[19px] font-medium text-ink">{item.account}</span>
+          <span className="text-muted text-[13px]">·</span>
+          <span className="text-[13px] text-charcoal">{item.stage}</span>
+          <span className="text-muted text-[13px]">·</span>
+          <span className={`text-[13px] font-medium ${item.priority === 'high' ? 'text-red' : item.priority === 'medium' ? 'text-amber' : 'text-blue'}`}>
+            {item.silent}
+          </span>
+        </div>
+        <p className="mt-1.5 text-[14px] text-muted leading-relaxed">{item.detail}</p>
+      </div>
+      <div className="flex items-center gap-1 pr-4" onClick={e => e.stopPropagation()}>
+        <ActionButton onClick={onReview} variant="secondary">Review</ActionButton>
+        <ActionButton onClick={onSnooze} variant="ghost">Snooze</ActionButton>
+        <ActionButton onClick={onDismiss} variant="ghost">Dismiss</ActionButton>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- PIPELINE SCREEN ---------- */
+
+function PipelineScreen({ onOpenAccount }) {
+  const [filter, setFilter] = useState('all');
+  const [owner, setOwner] = useState('mine');
+  const filtered = useMemo(() => {
+    let rows = pipelineRows;
+    if (filter === 'high') rows = rows.filter(r => r.alert === 'HIGH');
+    if (filter === 'med') rows = rows.filter(r => r.alert === 'MED');
+    if (filter === 'ok') rows = rows.filter(r => r.alert === 'OK');
+    return rows;
+  }, [filter, owner]);
+
+  const stats = useMemo(() => ({
+    total: pipelineRows.length,
+    high: pipelineRows.filter(r => r.alert === 'HIGH').length,
+    med: pipelineRows.filter(r => r.alert === 'MED').length,
+    silentOver7: pipelineRows.filter(r => parseInt(r.lastTouch) > 7).length
+  }), []);
+
+  return (
+    <div className="fade-in">
+      <header className="mb-8">
+        <div className="flex items-baseline justify-between mb-2">
+          <h1 className="font-serif-display text-[40px] font-light text-ink leading-tight">Pipeline</h1>
+          <div className="mono-label text-muted">42 accounts · Updated 2m ago</div>
+        </div>
+        <p className="text-muted text-[15px]">Your active book, grouped by stage health. Click any row to open the account.</p>
+      </header>
+
+      {/* Stats strip */}
+      <div className="grid grid-cols-4 gap-3 mb-8">
+        <StatCard label="TOTAL" value={stats.total} />
+        <StatCard label="HIGH PRIORITY" value={stats.high} accent="red" />
+        <StatCard label="NEEDS ATTENTION" value={stats.med} accent="amber" />
+        <StatCard label="SILENT 7+ DAYS" value={stats.silentOver7} accent="muted" />
+      </div>
+
+      {/* Filter row */}
+      <div className="flex items-center gap-2 mb-4">
+        <FilterPill active={filter==='all'} onClick={() => setFilter('all')}>All stages</FilterPill>
+        <FilterPill active={filter==='high'} onClick={() => setFilter('high')}>High priority</FilterPill>
+        <FilterPill active={filter==='med'} onClick={() => setFilter('med')}>Needs attention</FilterPill>
+        <FilterPill active={filter==='ok'} onClick={() => setFilter('ok')}>Healthy</FilterPill>
+        <div className="flex-1"></div>
+        <FilterPill active={owner==='mine'} onClick={() => setOwner('mine')}>My accounts</FilterPill>
+        <FilterPill active={owner==='all'} onClick={() => setOwner('all')}>All owners</FilterPill>
+      </div>
+
+      {/* Table */}
+      <div className="screen-card overflow-hidden shadow-soft">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-hairline">
+              <th className="text-left px-6 py-3 mono-label text-muted">Account</th>
+              <th className="text-left px-4 py-3 mono-label text-muted">Stage</th>
+              <th className="text-left px-4 py-3 mono-label text-muted">Last touch</th>
+              <th className="text-left px-4 py-3 mono-label text-muted">Next step</th>
+              <th className="text-left px-4 py-3 mono-label text-muted">Due</th>
+              <th className="text-left px-4 py-3 mono-label text-muted">Alert</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((row, i) => (
+              <tr
+                key={row.name}
+                className="row-hover cursor-pointer border-b border-hairline last:border-0 transition-colors"
+                onClick={() => onOpenAccount(row.id)}
+              >
+                <td className="px-6 py-4 font-serif-display text-[17px] text-ink">{row.name}</td>
+                <td className="px-4 py-4 text-[14px] text-charcoal">{row.stage}</td>
+                <td className="px-4 py-4 text-[14px] text-muted">{row.lastTouch}</td>
+                <td className="px-4 py-4 text-[14px] text-charcoal">{row.next}</td>
+                <td className={`px-4 py-4 text-[14px] ${row.overdue ? 'text-red font-medium' : 'text-muted'}`}>
+                  {row.due}{row.overdue ? ' · overdue' : ''}
+                </td>
+                <td className="px-4 py-4"><AlertPill value={row.alert} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="px-6 py-3 flex items-center justify-between text-[13px] text-muted border-t border-hairline">
+          <span>Showing {filtered.length} of {pipelineRows.length}</span>
+          <div className="flex items-center gap-3">
+            <span className="kbd">J</span>
+            <span className="kbd">K</span>
+            <span>Navigate</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value, accent = 'ink' }) {
+  const color = accent === 'red' ? 'text-red' : accent === 'amber' ? 'text-amber' : accent === 'muted' ? 'text-muted' : 'text-ink';
+  return (
+    <div className="screen-card p-5">
+      <div className="mono-label text-muted mb-3">{label}</div>
+      <div className={`font-serif-display text-[36px] font-light leading-none ${color}`}>{value}</div>
+    </div>
+  );
+}
+
+function FilterPill({ active, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-full text-[13px] font-medium transition-all border
+        ${active
+          ? 'bg-navy text-cream border-navy shadow-soft'
+          : 'bg-cream text-muted border-line hover:text-ink hover:border-muted'}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ---------- ACCOUNT DETAIL SCREEN ---------- */
+
+function AccountDetailScreen({ accountId, onBack, onSentToast }) {
+  // Fallback to Northwind for any account id that doesn't have full data
+  const account = ACCOUNTS[accountId] || ACCOUNTS['northwind'];
+  const [draftSaved, setDraftSaved] = useState(false);
+  const [commitments, setCommitments] = useState(account.commitments);
+
+  const saveDraft = () => {
+    setDraftSaved(true);
+    onSentToast(`Draft saved to Gmail Drafts · ${account.draft.to}`);
+    setTimeout(() => setDraftSaved(false), 3200);
+  };
+  const resolveCommitment = (id) => {
+    setCommitments(commitments.filter(c => c.id !== id));
+    onSentToast('Commitment marked as done');
+  };
+
+  return (
+    <div className="fade-in">
+      {/* Back + breadcrumb */}
+      <div className="flex items-center justify-between mb-6">
+        <button onClick={onBack} className="flex items-center gap-2 text-[13px] text-muted hover:text-ink transition-colors">
+          <span>←</span> Back to digest
+        </button>
+        <div className="mono-label text-muted">Account · {account.id}</div>
+      </div>
+
+      {/* Header */}
+      <header className="mb-8 pb-6 border-b border-hairline">
+        <div className="flex items-start justify-between gap-6">
+          <div>
+            <h1 className="font-serif-display text-[44px] font-light text-ink leading-tight">{account.name}</h1>
+            <div className="mt-2 flex items-center gap-3 text-[14px] text-muted">
+              <span>{account.domain}</span>
+              <span>·</span>
+              <span>{account.contacts.length} contacts</span>
+              <span>·</span>
+              <span>Owned by {account.owner}</span>
+              <span>·</span>
+              <span>Last touch {account.lastTouchAbs} ({account.lastTouch})</span>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="mono-label text-muted mb-1">Stage</div>
+            <button className="px-3 py-1.5 bg-amber-soft text-amber border border-amber/20 rounded-md text-[13px] font-medium hover:bg-amber hover:text-cream transition-colors">
+              {account.stage} ▾
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="grid grid-cols-3 gap-8">
+        {/* Left: Summary + Commitments + Draft (span 2) */}
+        <div className="col-span-2 space-y-8">
+          {/* AI summary */}
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <MonoLabel className="text-navy">Since last touch</MonoLabel>
+              <span className="mono-label text-muted">AI summary</span>
+            </div>
+            <div className="screen-card bg-blue-soft/40 border-blue-soft p-6">
+              <p className="font-serif-display text-[19px] leading-[1.55] text-charcoal">
+                {account.summary}
+              </p>
+              <div className="mt-4 flex items-center justify-between text-[13px]">
+                <button className="text-blue hover:text-navy font-medium transition-colors">
+                  View source thread · {account.timeline.length} messages →
+                </button>
+                <span className="mono-label text-muted">Regenerate</span>
+              </div>
+            </div>
+          </section>
+
+          {/* Commitments */}
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <MonoLabel className="text-navy">Open commitments</MonoLabel>
+              <span className="mono-label text-muted">{commitments.length} active</span>
+            </div>
+            <div className="space-y-2">
+              {commitments.map(c => (
+                <div key={c.id} className="screen-card p-4 flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="mono-label text-muted mb-1">
+                      {c.owedBy === 'you' ? 'You owe them' : 'They owe you'}
+                    </div>
+                    <div className={`text-[15px] ${c.overdue ? 'text-red font-medium' : 'text-charcoal'}`}>
+                      {c.text}
+                    </div>
+                    <div className="mt-1 text-[13px] text-muted">
+                      Due {c.due}{c.overdue ? ' · 9 days overdue' : ''}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <ActionButton onClick={() => resolveCommitment(c.id)} variant="success">Mark done</ActionButton>
+                    <ActionButton variant="ghost">Edit</ActionButton>
+                  </div>
+                </div>
+              ))}
+              {commitments.length === 0 && (
+                <div className="screen-card p-6 text-center text-muted text-[14px]">
+                  All commitments resolved.
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Drafted email */}
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <MonoLabel className="text-navy">AI-drafted follow-up</MonoLabel>
+              <span className="mono-label text-muted">Grounded in {account.timeline.length} source messages</span>
+            </div>
+            <div className="screen-card shadow-soft">
+              <div className="px-6 py-4 border-b border-hairline space-y-1.5 text-[13.5px]">
+                <div><span className="text-muted w-16 inline-block">To</span><span className="text-charcoal">{account.draft.to}</span></div>
+                <div><span className="text-muted w-16 inline-block">Subject</span><span className="text-charcoal font-medium">{account.draft.subject}</span></div>
+              </div>
+              <div className="px-6 py-5">
+                <pre className="font-sans text-[14.5px] leading-[1.7] text-charcoal whitespace-pre-wrap">{account.draft.body}</pre>
+              </div>
+              <div className="px-6 py-4 border-t border-hairline flex items-center justify-between gap-2">
+                <div className="text-[12px] text-muted flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green inline-block"></span>
+                  {draftSaved ? 'Saved to Gmail Drafts' : 'Draft ready'}
+                </div>
+                <div className="flex items-center gap-1">
+                  <ActionButton onClick={saveDraft} variant="primary">Save to Gmail Drafts</ActionButton>
+                  <ActionButton variant="ghost">Edit</ActionButton>
+                  <ActionButton variant="ghost">Regenerate</ActionButton>
+                  <ActionButton variant="danger">Dismiss</ActionButton>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        {/* Right: Timeline + Contacts */}
+        <div className="space-y-8">
+          <section>
+            <MonoLabel className="text-navy">Timeline</MonoLabel>
+            <div className="mt-3 space-y-3">
+              {account.timeline.map((ev, i) => (
+                <div key={i} className="flex items-start gap-3 text-[13.5px]">
+                  <span className="mono-label text-muted w-12 flex-shrink-0 pt-0.5">{ev.date}</span>
+                  <span className={`w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0
+                    ${ev.dir === 'in' ? 'bg-blue' : ev.dir === 'out' ? 'bg-navy' : 'bg-amber'}`}></span>
+                  <span className="text-charcoal leading-relaxed">{ev.text}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+          <section>
+            <MonoLabel className="text-navy">Contacts</MonoLabel>
+            <div className="mt-3 space-y-3">
+              {account.contacts.map((c, i) => (
+                <div key={i} className="flex items-start gap-3 text-[13.5px]">
+                  <div className="w-7 h-7 rounded-full bg-line text-ink flex items-center justify-center text-[11px] font-semibold flex-shrink-0">
+                    {c.name.split(' ').map(w => w[0]).join('')}
+                  </div>
+                  <div>
+                    <div className="text-charcoal font-medium">{c.name}</div>
+                    <div className="text-muted text-[12.5px]">{c.role}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- APPROVAL QUEUE ---------- */
+
+function QueueScreen({ items, setItems, onSentToast }) {
+  const resolve = (id, actionLabel) => {
+    const el = document.getElementById(`queue-item-${id}`);
+    if (el) {
+      el.classList.add('item-exit');
+      setTimeout(() => {
+        setItems(items.filter(i => i.id !== id));
+        onSentToast(`${actionLabel}`);
+      }, 220);
+    }
+  };
+
+  const iconFor = (type) => {
+    const base = "w-10 h-10 rounded-lg flex items-center justify-center text-[18px] flex-shrink-0";
+    if (type === 'stage') return <div className={`${base} bg-amber-soft text-amber font-serif-display`}>↗</div>;
+    if (type === 'dedupe') return <div className={`${base} bg-amber-soft text-amber font-serif-display`}>⎘</div>;
+    if (type === 'commitment') return <div className={`${base} bg-amber-soft text-amber font-serif-display`}>§</div>;
+    return null;
+  };
+
+  return (
+    <div className="fade-in">
+      <header className="mb-8">
+        <div className="flex items-baseline justify-between mb-2">
+          <h1 className="font-serif-display text-[40px] font-light text-ink leading-tight">Approval queue</h1>
+          <div className="mono-label text-muted">{items.length} pending · Goal: resolve within 24h</div>
+        </div>
+        <p className="text-muted text-[15px] max-w-2xl">
+          The system pauses here before it commits. Confirm or reject each item. Stale items degrade pipeline quality.
+        </p>
+      </header>
+
+      {items.length === 0 ? (
+        <div className="screen-card p-12 text-center">
+          <div className="font-serif-display text-2xl text-ink mb-2">Queue clear.</div>
+          <p className="text-muted text-[14px]">Nothing waiting on your review. Good work.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {items.map(item => (
+            <div key={item.id} id={`queue-item-${item.id}`}
+              className="screen-card shadow-soft p-6">
+              <div className="flex items-start gap-4">
+                {iconFor(item.type)}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 mb-1">
+                    <span className="mono-label text-amber">{item.title}</span>
+                    <span className="mono-label text-muted">confidence {item.confidence}%</span>
+                  </div>
+                  <div className="font-serif-display text-[21px] text-ink leading-snug">{item.headline}</div>
+                  <div className="text-[14px] text-charcoal mt-1">{item.subtitle}</div>
+                  <div className="mt-4 p-4 bg-cream border border-hairline rounded-md">
+                    <div className="mono-label text-muted mb-2">Why</div>
+                    <p className="text-[14px] text-charcoal leading-relaxed">{item.why}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-5 pt-4 border-t border-hairline flex items-center justify-between">
+                <div className="flex items-center gap-2 text-[12px] text-muted">
+                  <span className="kbd">Y</span> confirm
+                  <span className="kbd ml-2">N</span> reject
+                </div>
+                <div className="flex items-center gap-1">
+                  {item.actions.map((a, i) => (
+                    <ActionButton
+                      key={i}
+                      onClick={() => resolve(item.id, `${a} · ${item.headline}`)}
+                      variant={i === 0 ? 'primary' : i === item.actions.length - 1 ? 'ghost' : 'secondary'}
+                    >
+                      {a}
+                    </ActionButton>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- TOAST ---------- */
+
+function Toast({ message, onClose }) {
+  useEffect(() => {
+    if (!message) return;
+    const t = setTimeout(onClose, 2600);
+    return () => clearTimeout(t);
+  }, [message, onClose]);
+
+  if (!message) return null;
+  return (
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 fade-in">
+      <div className="bg-ink text-cream px-5 py-3 rounded-lg shadow-pop flex items-center gap-3 text-[13.5px]">
+        <span className="w-1.5 h-1.5 rounded-full bg-green"></span>
+        {message}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- APP ---------- */
+
+function App() {
+  const [screen, setScreen] = useState('digest');
+  const [selectedAccount, setSelectedAccount] = useState(null);
+  const [previousScreen, setPreviousScreen] = useState('digest');
+  const [digestItems, setDigestItems] = useState(initialDigestItems);
+  const [queueItems, setQueueItems] = useState(initialQueueItems);
+  const [toast, setToast] = useState(null);
+
+  const openAccount = (id) => {
+    setPreviousScreen(screen);
+    setSelectedAccount(id);
+    setScreen('account');
+  };
+
+  const goBack = () => {
+    setScreen(previousScreen);
+    setSelectedAccount(null);
+  };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === 'g') {
+        // 'g' prefix, wait for next
+        const handler2 = (e2) => {
+          if (e2.key === 'd') setScreen('digest');
+          if (e2.key === 'p') setScreen('pipeline');
+          if (e2.key === 'q') setScreen('queue');
+          window.removeEventListener('keydown', handler2);
+        };
+        window.addEventListener('keydown', handler2);
+        setTimeout(() => window.removeEventListener('keydown', handler2), 1000);
+      }
+      if (e.key === 'Escape' && screen === 'account') goBack();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [screen]);
+
+  return (
+    <div className="relative min-h-screen">
+      <TopNav
+        active={screen === 'account' ? previousScreen : screen}
+        setActive={(s) => { setScreen(s); setSelectedAccount(null); }}
+        queueCount={queueItems.length}
+      />
+
+      <main className="max-w-[1160px] mx-auto px-8 py-10 relative z-10">
+        {screen === 'digest' && (
+          <DigestScreen
+            items={digestItems}
+            setItems={setDigestItems}
+            onOpenAccount={openAccount}
+            onSentToast={setToast}
+          />
+        )}
+        {screen === 'pipeline' && (
+          <PipelineScreen onOpenAccount={openAccount} />
+        )}
+        {screen === 'queue' && (
+          <QueueScreen
+            items={queueItems}
+            setItems={setQueueItems}
+            onSentToast={setToast}
+          />
+        )}
+        {screen === 'account' && (
+          <AccountDetailScreen
+            accountId={selectedAccount}
+            onBack={goBack}
+            onSentToast={setToast}
+          />
+        )}
+      </main>
+
+      {/* footer */}
+      <footer className="max-w-[1160px] mx-auto px-8 py-8 border-t border-hairline mt-12 text-[12.5px] text-muted flex items-center justify-between relative z-10">
+        <div className="flex items-center gap-3">
+          <span className="font-serif-display text-[14px] text-charcoal">Ajaia Relay</span>
+          <span>·</span>
+          <span>v1.0 prototype</span>
+          <span>·</span>
+          <span>Shashank Nagarajappa</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <span>Press <span className="kbd">G</span> <span className="kbd">D</span> digest, <span className="kbd">G</span> <span className="kbd">P</span> pipeline, <span className="kbd">G</span> <span className="kbd">Q</span> queue</span>
+        </div>
+      </footer>
+
+      <Toast message={toast} onClose={() => setToast(null)} />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
